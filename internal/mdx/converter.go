@@ -71,6 +71,19 @@ func (c *Converter) Convert(html string) string {
 		return ""
 	}
 
+	// Try tree-based parser first (more robust)
+	result := ParseAndConvert(html)
+
+	// If tree parser produced empty result, fall back to regex
+	if result == "" {
+		result = c.convertWithRegex(html)
+	}
+
+	return result
+}
+
+// convertWithRegex is the legacy regex-based converter (kept for fallback)
+func (c *Converter) convertWithRegex(html string) string {
 	result := html
 
 	// Process tables first (they have complex structure)
@@ -186,17 +199,13 @@ func (c *Converter) Convert(html string) string {
 	// Process horizontal rules
 	result = c.patterns["hr"].ReplaceAllString(result, "\n---\n\n")
 
+	// Clean up empty tags (div, p, etc)
+	result = c.patterns["empty"].ReplaceAllString(result, "")
+
 	// Clean up extra whitespace
 	result = c.patterns["whitespace"].ReplaceAllString(result, "\n\n")
 
-	// Clean up empty tags
-	result = c.patterns["empty"].ReplaceAllString(result, "")
-
-	// Trim and normalize
-	result = strings.TrimSpace(result)
-	result = strings.ReplaceAll(result, "  \n", "\n") // Remove double spaces before newlines
-
-	return result
+	return strings.TrimSpace(result)
 }
 
 // convertTables transforms HTML tables to Markdown table format
