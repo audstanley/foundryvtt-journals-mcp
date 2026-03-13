@@ -1,0 +1,38 @@
+# Binaries
+bin/
+
+# Dependencies
+go.sum
+
+# IDE
+.idea/
+.vscode/
+
+# World data (should not be committed)
+worlds/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+temp/
+
+# Test artifacts
+coverage.out
+profile.out
+
+# Build
+.out

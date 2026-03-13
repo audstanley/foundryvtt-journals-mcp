@@ -1,0 +1,66 @@
+================================================================================
+FOUNDRY VTT USER DATA - LEVELDB SCHEMA ANALYSIS REPORT
+Generated: 2026-03-12 21:10:18
+================================================================================
+
+================================================================================
+FILE: /home/steam/Documents/fvtt-journal-mcp/worlds/testworld/data/users/000359.ldb
+================================================================================
+
+ERROR: No data found in file
+
+
+================================================================================
+FILE: /home/steam/Documents/fvtt-journal-mcp/worlds/dragons_guard/data/users/001005.ldb
+================================================================================
+
+ERROR: No data found in file
+
+
+================================================================================
+FILE: /home/steam/Documents/fvtt-journal-mcp/worlds/the-iron-kingdoms/data/users/000177.ldb
+================================================================================
+
+ERROR: No data found in file
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+Foundry VTT User Data Schema Summary:
+
+1. KEY FORMAT:
+   - Users are stored with keys in the format: "users.<base64_id>"
+   - The key ID is a base64-like encoded string
+
+2. USER OBJECT STRUCTURE:
+   All user records follow a consistent JSON structure with the following fields:
+   
+   - name: String - User's display name
+   - role: Integer - User's role (1 = User, likely higher values for GM/Admin)
+   - _id: String - Internal user identifier
+   - password: String - Hashed password (with salt prefix)
+   - avatar: String or null - Avatar URL or reference
+   - character: String - Linked character ID
+   - color: String - Hex color for user representation
+   - pronouns: String - User's pronouns
+   - hotbar: Object - Hotbar configuration (typically empty {})
+   - permissions: Object - User permissions (typically empty {})
+   - flags: Object - Custom flags/settings
+
+3. PERMISSION FIELDS:
+   - role: Integer field indicating user role level
+   - permissions: Object field for detailed permissions
+   - flags: Object for custom flags (e.g., dice-so-nice settings)
+
+4. PASSWORD FORMAT:
+   - Passwords appear to be hashed
+   - Format appears to be: [salt_prefix][hash_value]
+   - The first byte indicates the salt/encoding method
+
+5. USER ID FORMAT:
+   - Internal ID stored in "_id" field
+   - Appears to be a custom encoded string
+
+This schema analysis was generated automatically from Foundry VTT LevelDB files.
