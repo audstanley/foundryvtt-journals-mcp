@@ -69,27 +69,28 @@ This document tracks the implementation phases for the FVTT Journal MCP Server p
 
 ---
 
-## Phase 3: MCP Tools Implementation 🔄 NEXT
+## Phase 3: MCP Tools Implementation 🔄 IN PROGRESS
 
-### Core Tools
-- [ ] `list_worlds` - List all available worlds
-- [ ] `list_entries` - List journal entries in a world
-- [ ] `get_entry` - Get complete entry with all pages
-- [ ] `list_pages` - List pages within an entry
-- [ ] `get_page` - Get single page content (HTML → Markdown)
-- [ ] `search_entries` - Search entry names by query
-- [ ] `search_pages` - Search page content by query
-- [ ] `get_entry_stats` - Get entry statistics
-- [ ] `resolve_uuid` - Resolve @UUID{} references to actual data
-- [ ] Permission filtering by username
+### Core Tools - COMPLETED ✅
+- [x] `list_worlds` - List all available worlds (traversal.go)
+- [x] `list_entries` - List journal entries in a world (traversal.go)
+- [x] `get_entry` - Get complete entry with all pages (traversal.go)
+- [x] `list_pages` - List pages within an entry (traversal.go)
+- [x] `get_page` - Get single page content (traversal.go)
+- [x] `search_entries` - Search entry names by query (search.go)
+- [x] `search_pages` - Search page content by query (search.go)
+- [x] `get_entry_stats` - Get entry statistics (stats.go)
+- [x] `resolve_uuid` - Resolve @UUID{} references (uuid_resolution.go)
+- [x] Permission filtering by username (all tools support `user` param)
 
 ### Implementation Notes
-- Use tree walker for HTML to Markdown conversion
-- Leverage ExtractUUIDLinks for UUID reference extraction
-- Integrate with journal repository for data access
-- Add permission model support
+- ✅ Tree walker integrated for HTML to Markdown conversion
+- ✅ ExtractUUIDLinks leveraged for UUID reference extraction
+- ✅ Full integration with journal repository for data access
+- ✅ Permission model support in all traversal and search tools
 
-**Status:** Ready to start - Core infrastructure complete
+**Status:** 100% COMPLETE - All core MCP tools implemented
+**Next:** Phase 4 - MDX Export Enhancement
 
 ---
 
