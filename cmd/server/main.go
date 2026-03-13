@@ -132,7 +132,7 @@ func runMDX(cmd *cobra.Command, args []string) error {
 	}
 	defer repo.Close()
 
-	generator := mdx.NewGenerator(mdxOutputPath)
+	generator := mdx.NewGenerator(mdxOutputPath, mdxWorldsPath, mdxWorldName)
 	if err := generator.Export(repo, mdxWorldName); err != nil {
 		return fmt.Errorf("failed to export: %w", err)
 	}
