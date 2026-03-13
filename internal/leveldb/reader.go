@@ -67,6 +67,31 @@ type JournalKey struct {
 func ParseJournalKey(key []byte) (*JournalKey, bool) {
 	keyStr := string(key)
 
+	// Handle both !journal!{id} and !journal.pages!{compendium}.{id} formats
+	if strings.HasPrefix(keyStr, "!journal.pages!") {
+		// Format: !journal.pages!{compendium_id}.{page_id}
+		rest := keyStr[15:] // Skip "!journal.pages!" prefix
+		parts := strings.SplitN(rest, ".", 2)
+		if len(parts) != 2 {
+			return nil, false
+		}
+		return &JournalKey{
+			Type:         "journal.pages",
+			CompendiumID: parts[0],
+			EntityID:     parts[1],
+		}, true
+	}
+
+	if strings.HasPrefix(keyStr, "!journal!") {
+		// Format: !journal!{entity_id}
+		entityID := keyStr[9:] // Skip "!journal!" prefix
+		return &JournalKey{
+			Type:         "journal",
+			EntityID:     entityID,
+			CompendiumID: "",
+		}, true
+	}
+
 	if !strings.HasPrefix(keyStr, "journal.") {
 		return nil, false
 	}

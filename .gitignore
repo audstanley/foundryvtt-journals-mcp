@@ -9,6 +9,7 @@ go.sum
 .vscode/
 
 # World data (should not be committed)
+.exports
 worlds/
 *.swp
 *.swo

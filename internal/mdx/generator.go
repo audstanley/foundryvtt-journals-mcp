@@ -1,25 +1,31 @@
 package mdx
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/anomalyco/fvtt-journal-mcp/internal/journal"
+	"github.com/syndtr/goleveldb/leveldb"
 	"gopkg.in/yaml.v3"
 )
 
 // Generator creates MDX files from journal entries
 type Generator struct {
 	outputPath string
+	worldsPath string
+	worldName  string
 	converter  *Converter
 }
 
 // NewGenerator creates a new MDX generator
-func NewGenerator(outputPath string) *Generator {
+func NewGenerator(outputPath, worldsPath, worldName string) *Generator {
 	return &Generator{
 		outputPath: outputPath,
+		worldsPath: worldsPath,
+		worldName:  worldName,
 		converter:  NewConverter(),
 	}
 }
@@ -65,8 +71,9 @@ func (g *Generator) exportEntry(repo *journal.Repository, entry journal.JournalE
 	// Create entry directory with folder support
 	var entryDir string
 	if entry.Folder != nil && *entry.Folder != "" {
-		// Create folder structure: world-name/folder/entry-name/
-		sanitizedFolder := sanitizeFilename(*entry.Folder)
+		// Resolve folder ID to name
+		folderName := resolveFolderID(*entry.Folder, g.worldsPath, g.worldName)
+		sanitizedFolder := sanitizeFilename(folderName)
 		sanitizedEntry := sanitizeFilename(entry.Name)
 		entryDir = filepath.Join(worldDir, sanitizedFolder, sanitizedEntry)
 	} else {
@@ -112,7 +119,9 @@ func (g *Generator) exportPage(entry journal.JournalEntry, page journal.JournalP
 			content += "</video>"
 		}
 	case "pdf":
-		content = "[PDF Document](" + *page.Src + ")"
+		if page.Src != nil {
+			content = "[PDF Document](" + *page.Src + ")"
+		}
 	default:
 		content = fmt.Sprintf("Content type not supported: %s", page.Type)
 	}
@@ -214,6 +223,37 @@ func (g *Generator) generateFrontmatter(entry journal.JournalEntry, page journal
 	}
 
 	return buf.String(), nil
+}
+
+// resolveFolderID looks up the folder name from its ID
+func resolveFolderID(folderID string, worldsPath, worldName string) string {
+	if folderID == "" {
+		return ""
+	}
+
+	foldersPath := fmt.Sprintf("%s/%s/data/folders", worldsPath, worldName)
+	db, err := leveldb.OpenFile(foldersPath, nil)
+	if err != nil {
+		return folderID // Return ID if database not found
+	}
+	defer db.Close()
+
+	key := fmt.Sprintf("!folders!%s", folderID)
+	value, err := db.Get([]byte(key), nil)
+	if err != nil {
+		return folderID // Return ID if folder not found
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(value, &data); err != nil {
+		return folderID
+	}
+
+	if name, ok := data["name"].(string); ok && name != "" {
+		return name
+	}
+
+	return folderID
 }
 
 // sanitizeFilename creates a safe filename from user input
