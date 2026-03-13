@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/anomalyco/fvtt-journal-mcp/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +46,6 @@ func main() {
 		RunE:  runMDX,
 	}
 
-	var mdxOutputPath string
 	mdxCmd.Flags().StringVarP(&mdxWorldsPath, "worlds", "w", "", "WORLDS folder path (required, e.g., ./worlds)")
 	mdxCmd.Flags().StringVarP(&mdxWorldName, "name", "n", "", "World name to export (required, e.g., MyWorld)")
 	mdxCmd.Flags().StringVarP(&mdxOutputPath, "output", "o", "", "Output directory path (required)")
@@ -63,19 +61,9 @@ func main() {
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
-	// Load config
-	cfg, err := config.Load(ConfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
 	// Validate required flags
 	if WorldName == "" {
 		return fmt.Errorf("--name flag is required")
-	}
-	if WorldsPath == "" {
-		// Use config default
-		WorldsPath = cfg.WorldsPath
 	}
 	if WorldsPath == "" {
 		WorldsPath = "./worlds" // Default
@@ -86,11 +74,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(worldPath); os.IsNotExist(err) {
 		return fmt.Errorf("world not found: %s", worldPath)
 	}
-
-	log.Printf("Starting MCP server for world: %s", WorldName)
-	log.Printf("WORLDS path: %s", WorldsPath)
-	log.Printf("World path: %s", worldPath)
-	log.Printf("Username for permissions: %s", cfg.User)
 
 	// TODO: Implement MCP server initialization
 	// server := mcp.NewServer(...)
@@ -125,17 +108,7 @@ func runMDX(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--output flag is required")
 	}
 
-	// Load config
-	cfg, err := config.Load(ConfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
 	// Validate required flags
-	if mdxWorldsPath == "" {
-		// Use config default
-		mdxWorldsPath = cfg.WorldsPath
-	}
 	if mdxWorldsPath == "" {
 		mdxWorldsPath = "./worlds" // Default
 	}
