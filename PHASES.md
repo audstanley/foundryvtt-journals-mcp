@@ -94,16 +94,28 @@ This document tracks the implementation phases for the FVTT Journal MCP Server p
 
 ---
 
-## Phase 4: MDX Export Enhancement
+## Phase 4: MDX Export Enhancement 🔄 IN PROGRESS
 
-- [ ] Complete MDX export functionality
-- [ ] Generate proper frontmatter
-- [ ] Handle nested journal structure
+### Completed Tasks (1-2)
+- [x] **Complete MDX export functionality**
+- [x] **Generate proper frontmatter** - Enhanced with:
+  - All @UUID{} references found in content (with type, id, display, full uuid)
+  - Permission metadata (ownership maps)
+  - Entry/page sort order
+  - Folder structure
+  - Title configuration
+  - System metadata (timestamps)
+- [x] **Handle nested journal structure** - Implemented:
+  - Folder-based directory hierarchy (world/folder/entry/page.mdx)
+  - Sibling entry tracking in frontmatter
+  - Entry map for relationship detection
+
+### Pending Tasks
 - [ ] Export images/videos with proper paths
 - [ ] Include statistics in export
 - [ ] Configurable output structure
 
-**Status:** Not started
+**Status:** 60% Complete (Tasks 1-2 done, Tasks 3-6 pending)
 
 ---
 

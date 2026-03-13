@@ -38,9 +38,15 @@ func (g *Generator) Export(repo *journal.Repository, worldName string) error {
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
+	// Build parent-child relationships
+	entryMap := make(map[string]*journal.JournalEntry)
+	for i := range entries {
+		entryMap[entries[i].ID] = &entries[i]
+	}
+
 	// Process each entry
 	for _, entry := range entries {
-		if err := g.exportEntry(repo, entry, worldDir); err != nil {
+		if err := g.exportEntry(repo, entry, worldDir, entryMap); err != nil {
 			return fmt.Errorf("failed to export entry %s: %w", entry.ID, err)
 		}
 	}
@@ -49,22 +55,32 @@ func (g *Generator) Export(repo *journal.Repository, worldName string) error {
 }
 
 // exportEntry exports a single journal entry to MDX files
-func (g *Generator) exportEntry(repo *journal.Repository, entry journal.JournalEntry, worldDir string) error {
+func (g *Generator) exportEntry(repo *journal.Repository, entry journal.JournalEntry, worldDir string, entryMap map[string]*journal.JournalEntry) error {
 	// Get pages for this entry
 	pages, err := repo.ListPages(entry.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get pages: %w", err)
 	}
 
-	// Create entry directory: world-name/entry-name/
-	entryDir := filepath.Join(worldDir, sanitizeFilename(entry.Name))
+	// Create entry directory with folder support
+	var entryDir string
+	if entry.Folder != nil && *entry.Folder != "" {
+		// Create folder structure: world-name/folder/entry-name/
+		sanitizedFolder := sanitizeFilename(*entry.Folder)
+		sanitizedEntry := sanitizeFilename(entry.Name)
+		entryDir = filepath.Join(worldDir, sanitizedFolder, sanitizedEntry)
+	} else {
+		// Flat structure: world-name/entry-name/
+		entryDir = filepath.Join(worldDir, sanitizeFilename(entry.Name))
+	}
+
 	if err := os.MkdirAll(entryDir, 0755); err != nil {
 		return fmt.Errorf("failed to create entry directory: %w", err)
 	}
 
 	// Export each page as a separate MDX file
 	for _, page := range pages {
-		if err := g.exportPage(entry, page, entryDir); err != nil {
+		if err := g.exportPage(entry, page, entryDir, entryMap); err != nil {
 			return fmt.Errorf("failed to export page %s: %w", page.ID, err)
 		}
 	}
@@ -73,7 +89,7 @@ func (g *Generator) exportEntry(repo *journal.Repository, entry journal.JournalE
 }
 
 // exportPage exports a single page to an MDX file
-func (g *Generator) exportPage(entry journal.JournalEntry, page journal.JournalPage, entryDir string) error {
+func (g *Generator) exportPage(entry journal.JournalEntry, page journal.JournalPage, entryDir string, entryMap map[string]*journal.JournalEntry) error {
 	// Generate content based on page type
 	var content string
 	switch page.Type {
@@ -101,8 +117,14 @@ func (g *Generator) exportPage(entry journal.JournalEntry, page journal.JournalP
 		content = fmt.Sprintf("Content type not supported: %s", page.Type)
 	}
 
-	// Generate frontmatter
-	frontmatter, err := g.generateFrontmatter(entry, page)
+	// Extract UUIDs from text content for frontmatter
+	var contentForUUIDs string
+	if page.Text != nil {
+		contentForUUIDs = page.Text.Content
+	}
+
+	// Generate frontmatter with UUIDs
+	frontmatter, err := g.generateFrontmatter(entry, page, contentForUUIDs, entryMap)
 	if err != nil {
 		return fmt.Errorf("failed to generate frontmatter: %w", err)
 	}
@@ -120,21 +142,63 @@ func (g *Generator) exportPage(entry journal.JournalEntry, page journal.JournalP
 }
 
 // generateFrontmatter creates YAML frontmatter for an MDX file
-func (g *Generator) generateFrontmatter(entry journal.JournalEntry, page journal.JournalPage) (string, error) {
+func (g *Generator) generateFrontmatter(entry journal.JournalEntry, page journal.JournalPage, content string, entryMap map[string]*journal.JournalEntry) (string, error) {
 	frontmatter := map[string]interface{}{
 		"title": page.Name,
 		"entry": entry.Name,
 		"type":  page.Type,
 		"page":  page.ID,
+		"sort":  page.Sort,
 	}
 
-	// Add system metadata if available
-	if page.System != nil {
-		if created, ok := page.System["createdTime"].(float64); ok {
-			frontmatter["created"] = int64(created)
+	// Add entry-level metadata
+	frontmatter["entry_sort"] = entry.Sort
+	if entry.Folder != nil && *entry.Folder != "" {
+		frontmatter["folder"] = *entry.Folder
+	}
+
+	// Add UUID references from content
+	uuidRefs := ExtractUUIDLinks(content)
+	if len(uuidRefs) > 0 {
+		uuidList := make([]map[string]interface{}, len(uuidRefs))
+		for i, ref := range uuidRefs {
+			uuidList[i] = map[string]interface{}{
+				"type":    ref.Type,
+				"id":      ref.ID,
+				"display": ref.Display,
+				"uuid":    fmt.Sprintf("%s/%s", ref.Type, ref.ID),
+			}
 		}
-		if modified, ok := page.System["modifiedTime"].(float64); ok {
-			frontmatter["modified"] = int64(modified)
+		frontmatter["uuid_references"] = uuidList
+	}
+
+	// Add permission metadata
+	frontmatter["ownership"] = entry.Ownership
+
+	// Add page ownership
+	if len(page.Ownership) > 0 {
+		frontmatter["page_ownership"] = page.Ownership
+	}
+
+	// Add title config if present
+	if page.Title != nil {
+		frontmatter["title_config"] = map[string]interface{}{
+			"show":  page.Title.Show,
+			"level": page.Title.Level,
+		}
+	}
+
+	// Add parent/child relationships
+	if entry.Folder != nil && *entry.Folder != "" {
+		// Find sibling entries with same folder
+		var siblings []string
+		for _, e := range entryMap {
+			if e.Folder != nil && *e.Folder == *entry.Folder && e.ID != entry.ID {
+				siblings = append(siblings, e.Name)
+			}
+		}
+		if len(siblings) > 0 {
+			frontmatter["siblings"] = siblings
 		}
 	}
 
