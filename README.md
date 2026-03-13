@@ -38,7 +38,7 @@ mage build
 
 ```bash
 # Start server for a specific world
-./fjm serve --world MyWorld
+./fjm serve --worlds ./worlds --name MyWorld
 
 # Server runs on stdio, configure your MCP client to connect
 ```
@@ -47,7 +47,7 @@ mage build
 
 ```bash
 # Export all journals to Markdown
-./fjm mdx --world MyWorld --output ./exports
+./fjm mdx --worlds ./worlds --name MyWorld --output ./exports
 
 # Output structure:
 # ./exports/
