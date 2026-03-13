@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/anomalyco/fvtt-journal-mcp/internal/journal"
+	"github.com/anomalyco/fvtt-journal-mcp/internal/mdx"
 	"github.com/spf13/cobra"
 )
 
@@ -124,11 +126,17 @@ func runMDX(cmd *cobra.Command, args []string) error {
 	log.Printf("World path: %s", worldPath)
 	log.Printf("Output directory: %s", mdxOutputPath)
 
-	// TODO: Implement MDX export
-	// repo := journal.NewRepository(...)
-	// generator := mdx.NewGenerator(mdxOutputPath)
-	// generator.Export(mdxWorldName)
+	repo, err := journal.NewRepository(mdxWorldsPath, mdxWorldName)
+	if err != nil {
+		return fmt.Errorf("failed to open world: %w", err)
+	}
+	defer repo.Close()
 
-	log.Println("MDX export completed (placeholder)")
+	generator := mdx.NewGenerator(mdxOutputPath)
+	if err := generator.Export(repo, mdxWorldName); err != nil {
+		return fmt.Errorf("failed to export: %w", err)
+	}
+
+	log.Printf("MDX export completed to %s", mdxOutputPath)
 	return nil
 }

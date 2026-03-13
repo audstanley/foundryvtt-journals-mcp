@@ -112,7 +112,9 @@ func (g *Generator) exportPage(entry journal.JournalEntry, page journal.JournalP
 			content += "</video>"
 		}
 	case "pdf":
-		content = "[PDF Document](" + *page.Src + ")"
+		if page.Src != nil {
+			content = "[PDF Document](" + *page.Src + ")"
+		}
 	default:
 		content = fmt.Sprintf("Content type not supported: %s", page.Type)
 	}
