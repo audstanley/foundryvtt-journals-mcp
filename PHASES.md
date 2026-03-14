@@ -12,7 +12,7 @@ This document tracks the implementation phases for the FVTT Journal MCP Server p
 - [x] Journal schema parsing
 - [x] Basic MCP server skeleton
 - [x] Configuration system
-- [x] CLI with Cobra (single binary: serve + mdx commands)
+- [x] CLI with Cobra (simplified - only --worlds flag)
 
 **Status:** Complete
 **Test Coverage:** leveldb 84.7%, journal 20.6%
@@ -21,166 +21,154 @@ This document tracks the implementation phases for the FVTT Journal MCP Server p
 
 ## Phase 2: HTML to Markdown Converter ✅ COMPLETE
 
-### Current Approach: Regex-based
-**Issues identified:**
-- Fragile with nested/complex HTML
-- Doesn't handle malformed input well
-- Custom @UUID{} links not supported
-- Hard to maintain
-
-### New Approach: Proper HTML Parsing
-**Benefits:**
-- Robust tree traversal
-- Handles nested elements correctly
-- Better error handling
-- Easier to extend with custom formats
-
-### Tasks Completed
-
-- [x] Fix existing converter bugs:
-  - [x] List processing preserves non-list content
-  - [x] Inline formatting order (bold/italic before paragraphs)
-  - [x] Line breaks handling
-  - [x] Table separator format
-- [x] **Add golang.org/x/net/html dependency**
-- [x] **Implement tree-based parser**
-  - [x] Parse HTML into DOM tree
-  - [x] Recursive tree walker
-  - [x] Block element handling (p, h1-h6, ul, blockquote)
-  - [x] Inline element handling (b, i, strong, em, code, a)
-  - [x] Image and video handling
-  - [x] Implement @UUID{} link parsing and conversion
-- [x] **Fix identified issues:**
-  - [x] UUID link extraction - bounds error with multiple links
-  - [x] Ordered list numbering - working correctly
-  - [x] Table cell extraction - proper separators
-  - [x] Complex content parsing - no slice bounds panic
+### Implementation
+- [x] Fix existing converter bugs
+- [x] Add golang.org/x/net/html dependency
+- [x] Implement tree-based parser
 - [x] Integrate tree walker as primary converter with regex fallback
-- [x] All tests passing (52.8% mdx coverage, 84.7% leveldb, 20.6% journal)
-- [x] Single binary builds successfully (fjm)
 
-**Status:** COMPLETE - Tree walker successfully handles all test cases
-**Next:** Phase 3 - MCP Tools Implementation
+**Status:** COMPLETE
+**Next:** Phase 3 - NDJSON Support & Unified Search
+
+---
+
+## Phase 3: NDJSON Support & Unified Search 🔄 IN PROGRESS
+
+### Core Features - COMPLETED ✅
+- [x] **NDJSON Reader** - Parse .db files (Actors, Items, Journals)
+- [x] **Unified Repository** - Combine LevelDB + NDJSON
+- [x] **Search Results Structure** - SearchResult with source tagging
+- [x] **MergeSearchResults** - Deduplication by UUID
+- [x] **Repository Search Methods** - SearchAll, SearchNDJSON, GetNDJSONByID
+
+### MCP Tools - COMPLETED ✅
+- [x] **search_all** - Unified search across LevelDB + NDJSON
+- [x] **search_compendium** - NDJSON-only search with entity_type filter
+- [x] **search_journals** - LevelDB journal entries only
+- [x] **search_journal_pages** - LevelDB page content only
+- [x] **resolve_uuid** - Updated to auto-discover world
+- [x] **resolve_uuids_from_content** - Updated to auto-discover world
+
+### CLI Simplification - COMPLETED ✅
+- [x] Removed `--name`/`-n` flags
+- [x] Only `--worlds` flag required
+- [x] Auto-discover all worlds in --worlds directory
+- [x] All tools auto-select first available world
+
+### Implementation Notes
+- NDJSON files discovered in `worlds/{world}/data/`
+- Whitelisted entity types: `actors`, `items`, `journals`
+- Source tagging: "LevelDB" (front) vs "NDJSON" (back)
+- Deduplication prioritizes LevelDB results
+- All entity data searchable (name, type, system fields)
+
+**Status:** 90% Complete
+**Next:** Phase 4 - Testing & Validation
 
 ### Test Coverage
 - leveldb: 84.7% ✅
-- mdx: 52.8% (tree walker + regex fallback)
+- ndjson: New module (needs tests)
 - journal: 20.6%
 
 ---
 
-## Phase 3: MCP Tools Implementation 🔄 IN PROGRESS
+## Phase 4: Testing & Validation
 
-### Core Tools - COMPLETED ✅
-- [x] `list_worlds` - List all available worlds (traversal.go)
-- [x] `list_entries` - List journal entries in a world (traversal.go)
-- [x] `get_entry` - Get complete entry with all pages (traversal.go)
-- [x] `list_pages` - List pages within an entry (traversal.go)
-- [x] `get_page` - Get single page content (traversal.go)
-- [x] `search_entries` - Search entry names by query (search.go)
-- [x] `search_pages` - Search page content by query (search.go)
-- [x] `get_entry_stats` - Get entry statistics (stats.go)
-- [x] `resolve_uuid` - Resolve @UUID{} references (uuid_resolution.go)
-- [x] Permission filtering by username (all tools support `user` param)
+### Planned Tasks
+- [ ] Integration tests with real FVTT worlds
+- [ ] Search accuracy validation
+- [ ] Deduplication verification
+- [ ] Performance testing with large datasets
+- [ ] NDJSON reader unit tests
+- [ ] Unified search integration tests
 
-### Implementation Notes
-- ✅ Tree walker integrated for HTML to Markdown conversion
-- ✅ ExtractUUIDLinks leveraged for UUID reference extraction
-- ✅ Full integration with journal repository for data access
-- ✅ Permission model support in all traversal and search tools
-
-**Status:** 100% COMPLETE - All core MCP tools implemented
-**Next:** Phase 4 - MDX Export Enhancement
+**Status:** Not started
 
 ---
 
-## Phase 4: MDX Export Enhancement 🔄 IN PROGRESS
+## Phase 5: Export Enhancement (Optional)
 
-### ✅ COMPLETED - Export Core Functionality
-- [x] MDX export pipeline implemented
-- [x] Directory structure: output/world/entry/page.mdx
-- [x] HTML to Markdown conversion via tree walker
-
-### ✅ COMPLETED - Enhanced Frontmatter
-- [x] UUID reference extraction (`@UUID[Type.ID]{Text}` → full list)
-- [x] Permission metadata (entry ownership, page ownership)
-- [x] Sort ordering (entry_sort, page sort)
-- [x] Folder structure (entry.Folder path)
-- [x] Title configuration (show, level)
-- [x] System metadata (created/modified timestamps)
-- [x] YAML frontmatter format
-
-### ✅ COMPLETED - Nested Journal Structure
-- [x] Folder-based directory hierarchy
-- [x] Sibling entry tracking
-- [x] Entry map for relationships
-- [x] FVTT folder preservation
-
-### 🔄 PENDING - Export Enhancement
-- [ ] Export images/videos with proper paths
-  - Copy media files to export directory
-  - Update image/video src paths to be relative
-  - Handle embedded media vs external URLs
+### Future Considerations
+- [ ] Export NDJSON entities as MDX files
 - [ ] Include statistics in export
-  - Generate summary.md with world stats
-  - Entry page type distribution
-  - Total pages, entries, media counts
 - [ ] Configurable output structure
-  - Command-line flags for output options
-  - Flat vs hierarchical structure
-  - Custom file naming patterns
 
-**Status:** 65% Complete
-**Next Steps:** Implement media file export (Task 3)
+**Status:** Not started - Lower priority
 
 ---
 
 ## Quick Start for New Users
 
+### Running the MCP Server
+```bash
+# Start server - auto-discovers all worlds
+./fjm serve --worlds ./worlds
+
+# Server runs on stdio, configure your MCP client to connect
+```
+
+### Exporting Journals to MDX
+```bash
+# Export all worlds in --worlds directory
+./fjm mdx --worlds ./worlds --output ./exports
+```
+
+### Using MCP Tools
+
+#### Unified Search
+```json
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_all","arguments":{"query":"goblin"}},"id":1}
+```
+
+#### Compendium Search
+```json
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_compendium","arguments":{"query":"dragon","entity_type":"actors"}},"id":1}
+```
+
 ---
 
-## Phase 5: Advanced Features
+## Implementation Summary
 
-- [ ] Full-text search index
-- [ ] Caching layer for performance
-- [ ] WebSocket support for real-time updates
-- [ ] Batch operations
-- [ ] Journal entry linking/referencing
-- [ ] Custom field extraction
+### Database Architecture
+```
+LevelDB (Front Compendium)
+├── worlds/{world}/data/journal/
+└── worlds/{world}/data/users/
+    └── Journal entries + pages
 
-**Status:** Not started
+NDJSON (Back Compendium)
+├── worlds/{world}/data/actors.db
+├── worlds/{world}/data/items.db
+└── worlds/{world}/data/journals.db
+    └── Actors, Items, Spells, etc.
+```
 
----
+### Search Flow
+1. Query received → Auto-discover world
+2. Search LevelDB (journal entries + pages)
+3. Search NDJSON (actors + items + journals)
+4. Merge results with source tagging
+5. Deduplicate by UUID (prioritize LevelDB)
+6. Return unified results
 
-## Phase 6: Testing & Optimization
-
-- [ ] Integration tests with real FVTT worlds
-- [ ] Load testing for large journals
-- [ ] Performance optimization
-- [ ] Memory profiling
-- [ ] Documentation generation
-- [ ] Error handling improvements
-
-**Status:** Not started
-
----
-
-## Phase 7: Production Deployment
-
-- [ ] Docker containerization
-- [ ] Systemd service setup
-- [ ] Monitoring and logging
-- [ ] Backup/restore functionality
-- [ ] Version migration tools
-- [ ] Release process automation
-
-**Status:** Not started
+### Result Structure
+```json
+{
+  "id": "006L3VJldOkDOqrI",
+  "name": "Gargoyle",
+  "type": "Actor",
+  "source": "NDJSON",
+  "uuid": "Actor/006L3VJldOkDOqrI",
+  "meta": { ... }
+}
+```
 
 ---
 
 ## Notes
 
 - All phases should maintain 90%+ code coverage target
-- Use golang.org/x/net/html for HTML parsing (Phase 2)
+- Use golang.org/x/net/html for HTML parsing
 - Custom @UUID{} format requires special handling in parser
 - Permission model: Filter by username but include permission metadata
+- NDJSON search covers all fields recursively (name, type, system.* )

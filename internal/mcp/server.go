@@ -43,15 +43,36 @@ const (
 
 // Server implements the MCP JSON-RPC 2.0 server
 type Server struct {
-	tools   map[string]Tool
-	input   io.Reader
-	output  io.Writer
-	logger  *log.Logger
-	ctx     context.Context
-	cancel  context.CancelFunc
-	mu      sync.Mutex
-	running bool
+	tools        map[string]Tool
+	input        io.Reader
+	output       io.Writer
+	logger       *log.Logger
+	ctx          context.Context
+	cancel       context.CancelFunc
+	mu           sync.Mutex
+	running      bool
+	capabilities *Capabilities
 }
+
+// Capabilities represents MCP server capabilities
+type Capabilities struct {
+	Tools     *ToolsCapability     `json:"tools"`
+	Resources *ResourcesCapability `json:"resources"`
+	Prompts   *PromptsCapability   `json:"prompts"`
+}
+
+// ToolsCapability represents tools capability structure
+type ToolsCapability struct {
+	ListChanged bool `json:"listChanged"`
+}
+
+// ResourcesCapability represents resources capability structure
+type ResourcesCapability struct {
+	ListChanged bool `json:"listChanged"`
+}
+
+// PromptsCapability represents prompts capability structure
+type PromptsCapability struct{}
 
 // Tool represents an MCP tool
 type Tool struct {
@@ -72,7 +93,17 @@ func NewServer(input io.Reader, output io.Writer) *Server {
 		logger: log.New(os.Stderr, "[MCP] ", log.LstdFlags),
 		ctx:    ctx,
 		cancel: cancel,
+		capabilities: &Capabilities{
+			Tools:     &ToolsCapability{ListChanged: false},
+			Resources: &ResourcesCapability{ListChanged: false},
+			Prompts:   &PromptsCapability{},
+		},
 	}
+}
+
+// SetLogger sets a custom logger for the server
+func (s *Server) SetLogger(logger *log.Logger) {
+	s.logger = logger
 }
 
 // RegisterTool registers a new tool
@@ -118,22 +149,152 @@ func (s *Server) Stop() {
 
 // handleRequest processes a JSON-RPC request
 func (s *Server) handleRequest(req Request) {
-	s.mu.Lock()
-	tool, exists := s.tools[req.Method]
-	s.mu.Unlock()
-
-	if !exists {
-		s.sendErrorResponse(req.ID, CodeMethodNotFound, fmt.Sprintf("Method not found: %s", req.Method))
+	// Handle initialize method
+	if req.Method == "initialize" {
+		s.handleInitialize(req)
 		return
 	}
 
-	result, err := tool.Handler(req.Params)
+	// Handle ping method
+	if req.Method == "ping" {
+		s.handlePing(req)
+		return
+	}
+
+	// Handle tools/list method
+	if req.Method == "tools/list" {
+		s.handleToolsList(req)
+		return
+	}
+
+	// Handle tools/call method
+	if req.Method == "tools/call" {
+		s.handleToolsCall(req)
+		return
+	}
+
+	// Handle resources/list method
+	if req.Method == "resources/list" {
+		s.handleResourcesList(req)
+		return
+	}
+
+	// Handle resources/read method
+	if req.Method == "resources/read" {
+		s.handleResourcesRead(req)
+		return
+	}
+
+	// Handle prompts/list method
+	if req.Method == "prompts/list" {
+		s.handlePromptsList(req)
+		return
+	}
+
+	// Handle prompts/get method
+	if req.Method == "prompts/get" {
+		s.handlePromptsGet(req)
+		return
+	}
+
+	s.sendErrorResponse(req.ID, CodeMethodNotFound, fmt.Sprintf("Method not found: %s", req.Method))
+}
+
+// handleInitialize handles the initialize request
+func (s *Server) handleInitialize(req Request) {
+	result := map[string]interface{}{
+		"protocolVersion": "2024-11-05",
+		"serverInfo": map[string]interface{}{
+			"name":    "fvtt-journal-mcp",
+			"version": "1.0.0",
+		},
+		"capabilities": s.capabilities,
+	}
+	s.sendResponse(req.ID, result)
+}
+
+// handlePing handles the ping request
+func (s *Server) handlePing(req Request) {
+	s.sendResponse(req.ID, map[string]interface{}{})
+}
+
+// handleToolsList handles the tools/list request
+func (s *Server) handleToolsList(req Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	toolList := make([]map[string]interface{}, 0, len(s.tools))
+	for _, tool := range s.tools {
+		toolList = append(toolList, map[string]interface{}{
+			"name":        tool.Name,
+			"description": tool.Description,
+			"inputSchema": tool.InputSchema,
+		})
+	}
+
+	s.sendResponse(req.ID, map[string]interface{}{
+		"tools": toolList,
+	})
+}
+
+// handleToolsCall handles the tools/call request
+func (s *Server) handleToolsCall(req Request) {
+	var params struct {
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments,omitempty"`
+	}
+
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		s.sendErrorResponse(req.ID, CodeInvalidParams, "Invalid params")
+		return
+	}
+
+	s.mu.Lock()
+	tool, exists := s.tools[params.Name]
+	s.mu.Unlock()
+
+	if !exists {
+		s.sendErrorResponse(req.ID, CodeMethodNotFound, fmt.Sprintf("Tool not found: %s", params.Name))
+		return
+	}
+
+	result, err := tool.Handler(params.Arguments)
 	if err != nil {
 		s.sendErrorResponse(req.ID, CodeInternalError, err.Error())
 		return
 	}
 
-	s.sendResponse(req.ID, result)
+	content := []map[string]interface{}{
+		{"type": "text", "text": fmt.Sprintf("%v", result)},
+	}
+
+	s.sendResponse(req.ID, map[string]interface{}{
+		"content": content,
+	})
+}
+
+// handleResourcesList handles the resources/list request
+func (s *Server) handleResourcesList(req Request) {
+	s.sendResponse(req.ID, map[string]interface{}{
+		"resources": []interface{}{},
+	})
+}
+
+// handleResourcesRead handles the resources/read request
+func (s *Server) handleResourcesRead(req Request) {
+	s.sendErrorResponse(req.ID, CodeMethodNotFound, "Resources read not implemented")
+}
+
+// handlePromptsList handles the prompts/list request
+func (s *Server) handlePromptsList(req Request) {
+	s.sendResponse(req.ID, map[string]interface{}{
+		"prompts": []interface{}{},
+	})
+}
+
+// handlePromptsGet handles the prompts/get request
+func (s *Server) handlePromptsGet(req Request) {
+	s.sendErrorResponse(req.ID, CodeMethodNotFound, "Prompts get not implemented")
 }
 
 // sendResponse sends a JSON-RPC response

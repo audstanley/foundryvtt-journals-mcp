@@ -1,6 +1,6 @@
-# Foundry VTT Journal MCP Server
+# Foundry VTT Journal Import & Export & MCP Server
 
-An MCP (Model Context Protocol) server for reading and searching Foundry VTT journals.
+An MCP (Model Context Protocol) server for reading, searching, and exporting Foundry VTT journals.
 
 ## Overview
 
@@ -20,8 +20,8 @@ This tool provides:
 
 ```bash
 # Clone repository
-git clone https://github.com/anomalyco/fvtt-journal-mcp.git
-cd fvtt-journal-mcp
+git clone https://github.com/audstanley/foundryvtt-journals-mcp
+cd foundryvtt-journals-mcp
 
 # Build binary
 go mod download

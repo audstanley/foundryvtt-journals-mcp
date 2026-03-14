@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/anomalyco/fvtt-journal-mcp/internal/leveldb"
+	"github.com/anomalyco/fvtt-journal-mcp/internal/ndjson"
 )
 
 // Repository provides access to journal data
@@ -13,6 +14,7 @@ type Repository struct {
 	worldName  string
 	journalDB  *leveldb.Reader
 	usersDB    *leveldb.Reader
+	ndjsonDB   *ndjson.Reader
 	worldsPath string
 }
 
@@ -29,10 +31,18 @@ func NewRepository(worldsPath, worldName string) (*Repository, error) {
 		return nil, fmt.Errorf("failed to open users database: %w", err)
 	}
 
+	ndjsonDB, err := ndjson.Open(worldsPath, worldName)
+	if err != nil {
+		journalDB.Close()
+		usersDB.Close()
+		return nil, fmt.Errorf("failed to open ndjson database: %w", err)
+	}
+
 	return &Repository{
 		worldName:  worldName,
 		journalDB:  journalDB,
 		usersDB:    usersDB,
+		ndjsonDB:   ndjsonDB,
 		worldsPath: worldsPath,
 	}, nil
 }
@@ -47,6 +57,11 @@ func (r *Repository) Close() error {
 	}
 	if r.usersDB != nil {
 		if err := r.usersDB.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if r.ndjsonDB != nil {
+		if err := r.ndjsonDB.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -336,6 +351,42 @@ func (r *Repository) GetUserID(username string) (string, error) {
 // ListWorlds returns all available worlds
 func ListWorlds(worldsPath string) ([]string, error) {
 	return leveldb.FindWorlds(worldsPath)
+}
+
+// SearchNDJSON searches the NDJSON back compendium
+func (r *Repository) SearchNDJSON(query string) ([]map[string]interface{}, error) {
+	if r.ndjsonDB == nil {
+		return nil, fmt.Errorf("ndjson database not available")
+	}
+	return r.ndjsonDB.Search(query)
+}
+
+// GetNDJSONByID retrieves an entity from NDJSON by type and ID
+func (r *Repository) GetNDJSONByID(entityType, id string) (map[string]interface{}, bool) {
+	if r.ndjsonDB == nil {
+		return nil, false
+	}
+	return r.ndjsonDB.GetByID(entityType, id)
+}
+
+// SearchAll performs a unified search across LevelDB (journals) and NDJSON (back compendium)
+func (r *Repository) SearchAll(query string) (*SearchResults, error) {
+	journalEntries, err := r.SearchEntries(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search journal entries: %w", err)
+	}
+
+	journalPages, err := r.SearchPages(query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search journal pages: %w", err)
+	}
+
+	ndjsonEntities, err := r.SearchNDJSON(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search ndjson: %w", err)
+	}
+
+	return MergeSearchResults(journalEntries, journalPages, ndjsonEntities, query), nil
 }
 
 // Helper functions
