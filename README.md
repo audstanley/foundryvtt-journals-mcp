@@ -10,6 +10,9 @@ This tool provides:
 - **Permission-Aware** - Respects Foundry VTT user permissions and ownership
 - **UUID Resolution** - Resolve `@UUID{Type.ID}{Text}` references to actual data
 - **Nested Structure** - Preserve FVTT folder hierarchy in exports
+- **Command-Line Search** - Search across journals, actors, and items from terminal
+
+**Note: This tool is designed for Game Masters only. Permission filtering has not been implemented in the search engine, so all data is visible regardless of in-game permissions.**
 
 ## Requirements
 
@@ -43,11 +46,27 @@ mage build
 # Server runs on stdio, configure your MCP client to connect
 ```
 
+### Command-Line Search
+
+```bash
+# Search across all worlds for "goblin"
+./fjm search --query "goblin" --worlds ./worlds
+
+# Search returns:
+# - Journal entries from LevelDB
+# - Actors from both NDJSON and LevelDB
+# - Items from both NDJSON and LevelDB
+# Results marked by source type (LevelDB vs NDJSON)
+```
+
 ### Exporting Journals to MDX
 
 ```bash
-# Export all journals to Markdown
+# Export single world to Markdown
 ./fjm mdx --worlds ./worlds --name MyWorld --output ./exports
+
+# Export all worlds (omit --name flag)
+./fjm mdx --worlds ./worlds --output ./exports
 
 # Output structure:
 # ./exports/
@@ -81,6 +100,7 @@ All tools accept JSON parameters via stdio:
 ### Search Tools
 - `search_entries` - Search entry names by query
 - `search_pages` - Search page content (returns snippets)
+- `search_all` - **UNIFIED SEARCH** - Search journals, actors, and items across both LevelDB and NDJSON databases
 
 ### Stats Tools
 - `get_entry_stats` - Get world/entry statistics
@@ -89,7 +109,34 @@ All tools accept JSON parameters via stdio:
 - `resolve_uuid` - Resolve single `@UUID{}` reference
 - `resolve_uuids_from_content` - Extract and resolve all UUIDs in content
 
-## Configuration
+## Command-Line Search
+
+The `search` command provides unified search across all data sources:
+
+```bash
+./fjm search --query "your search term" --worlds ./worlds
+```
+
+**Flags:**
+- `--query, -q` - Search term (required)
+- `--worlds, -w` - Path to worlds directory (default: `./worlds`)
+
+**What it searches:**
+1. Journal entries (LevelDB)
+2. Actors from NDJSON (`actors.db`)
+3. Items from NDJSON (`items.db`)
+4. Actors from LevelDB (`data/actors/`)
+5. Items from LevelDB (`data/items/`)
+
+**Output format:**
+Each result includes:
+- Type (journal, actor, item)
+- Source (LevelDB or NDJSON)
+- World name
+- UUID reference
+- Content snippet
+
+> **⚠️ GM Only Notice**: This search currently bypasses all permission checks. Only use for GM purposes on worlds you own.
 
 ### Environment Variables
 
