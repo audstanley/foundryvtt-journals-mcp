@@ -40,8 +40,8 @@ mage build
 ### Running the MCP Server
 
 ```bash
-# Start server (reads worlds from FJM_WORLDS_PATH or ./worlds)
-./fjm serve
+# Start server with worlds path
+./fjm serve --worlds ./worlds
 
 # Server runs on stdio, configure your MCP client to connect
 ```
