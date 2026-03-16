@@ -21,6 +21,8 @@ var (
 	ConfigPath    string
 	mdxWorldsPath string
 	mdxOutputPath string
+	query         string
+	searchWorlds  string
 )
 
 func main() {
@@ -51,8 +53,19 @@ func main() {
 	mdxCmd.Flags().StringVarP(&mdxOutputPath, "output", "o", "", "Output directory path (required)")
 	mdxCmd.Flags().StringVarP(&ConfigPath, "config", "c", "", "Config file path")
 
+	searchCmd := &cobra.Command{
+		Use:   "search",
+		Short: "Search all Foundry VTT data",
+		Long:  `Search across both LevelDB (journals) and NDJSON (back compendium) from the command line.`,
+		RunE:  runSearch,
+	}
+
+	searchCmd.Flags().StringVarP(&query, "query", "q", "", "Search query (required)")
+	searchCmd.Flags().StringVarP(&searchWorlds, "worlds", "w", "", "WORLDS folder path (e.g., ./worlds)")
+
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(mdxCmd)
+	rootCmd.AddCommand(searchCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -173,5 +186,90 @@ func runMDX(cmd *cobra.Command, args []string) error {
 	}
 
 	log.Printf("MDX export completed to %s", mdxOutputPath)
+	return nil
+}
+
+func runSearch(cmd *cobra.Command, args []string) error {
+	if query == "" {
+		return fmt.Errorf("--query flag is required")
+	}
+
+	if WorldsPath == "" {
+		WorldsPath = "./worlds"
+	}
+
+	if _, err := os.Stat(WorldsPath); os.IsNotExist(err) {
+		return fmt.Errorf("worlds directory not found: %s", WorldsPath)
+	}
+
+	availableWorlds, err := journal.ListWorlds(WorldsPath)
+	if err != nil {
+		return fmt.Errorf("failed to list worlds: %w", err)
+	}
+
+	if len(availableWorlds) == 0 {
+		return fmt.Errorf("no worlds found in %s", WorldsPath)
+	}
+
+	log.Printf("Searching for: %s", query)
+	log.Printf("Worlds path: %s", WorldsPath)
+
+	var results []map[string]interface{}
+	totalCount := 0
+
+	log.Printf("Searching all worlds")
+	for _, worldName := range availableWorlds {
+		log.Printf("World: %s", worldName)
+		repo, err := journal.NewRepository(WorldsPath, worldName)
+		if err != nil {
+			log.Printf("Failed to open world %s: %v", worldName, err)
+			continue
+		}
+
+		searchResults, err := repo.SearchAll(query)
+		repo.Close()
+
+		if err != nil {
+			log.Printf("Search failed for %s: %v", worldName, err)
+			continue
+		}
+
+		for _, r := range searchResults.Results {
+			resultMap := map[string]interface{}{
+				"id":     r.ID,
+				"name":   r.Name,
+				"type":   r.Type,
+				"source": r.Source,
+				"world":  worldName,
+				"uuid":   r.UUID,
+			}
+			if r.Content != "" {
+				resultMap["content"] = r.Content
+			}
+			results = append(results, resultMap)
+		}
+		totalCount += searchResults.Count
+	}
+
+	log.Printf("Found %d results", totalCount)
+	fmt.Printf("\n=== Search Results (%d total) ===\n\n", totalCount)
+	for i, r := range results {
+		fmt.Printf("%d. [%s] %s (%s)\n", i+1, r["type"], r["name"], r["source"])
+		if world, ok := r["world"].(string); ok {
+			fmt.Printf("   World: %s\n", world)
+		}
+		if uuid, ok := r["uuid"].(string); ok && uuid != "" {
+			fmt.Printf("   UUID: %s\n", uuid)
+		}
+		if content, ok := r["content"].(string); ok && content != "" {
+			snippet := content
+			if len(snippet) > 200 {
+				snippet = snippet[:200] + "..."
+			}
+			fmt.Printf("   Content: %s\n", snippet)
+		}
+		fmt.Println()
+	}
+
 	return nil
 }

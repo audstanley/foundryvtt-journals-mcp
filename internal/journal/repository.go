@@ -15,6 +15,8 @@ type Repository struct {
 	journalDB  *leveldb.Reader
 	usersDB    *leveldb.Reader
 	ndjsonDB   *ndjson.Reader
+	actorDB    *leveldb.Reader
+	itemsDB    *leveldb.Reader
 	worldsPath string
 }
 
@@ -38,11 +40,30 @@ func NewRepository(worldsPath, worldName string) (*Repository, error) {
 		return nil, fmt.Errorf("failed to open ndjson database: %w", err)
 	}
 
+	actorDB, err := leveldb.OpenWorldActors(worldsPath, worldName)
+	if err != nil {
+		journalDB.Close()
+		usersDB.Close()
+		ndjsonDB.Close()
+		return nil, fmt.Errorf("failed to open actors database: %w", err)
+	}
+
+	itemsDB, err := leveldb.OpenWorldItems(worldsPath, worldName)
+	if err != nil {
+		journalDB.Close()
+		usersDB.Close()
+		ndjsonDB.Close()
+		actorDB.Close()
+		return nil, fmt.Errorf("failed to open items database: %w", err)
+	}
+
 	return &Repository{
 		worldName:  worldName,
 		journalDB:  journalDB,
 		usersDB:    usersDB,
 		ndjsonDB:   ndjsonDB,
+		actorDB:    actorDB,
+		itemsDB:    itemsDB,
 		worldsPath: worldsPath,
 	}, nil
 }
@@ -62,6 +83,16 @@ func (r *Repository) Close() error {
 	}
 	if r.ndjsonDB != nil {
 		if err := r.ndjsonDB.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if r.actorDB != nil {
+		if err := r.actorDB.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if r.itemsDB != nil {
+		if err := r.itemsDB.Close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -225,8 +256,8 @@ func (r *Repository) SearchEntries(query string) ([]JournalEntry, error) {
 			return true
 		}
 
-		// Case-sensitive partial match
-		if strings.Contains(entry.Name, query) {
+		// Case-insensitive partial match
+		if strings.Contains(strings.ToLower(entry.Name), strings.ToLower(query)) {
 			results = append(results, entry)
 		}
 
@@ -280,8 +311,8 @@ func (r *Repository) SearchPages(query string, entryID *string) ([]JournalPage, 
 			return true
 		}
 
-		// Case-sensitive partial match in text content
-		if page.Text != nil && strings.Contains(page.Text.Content, query) {
+		// Case-insensitive partial match in text content
+		if page.Text != nil && strings.Contains(strings.ToLower(page.Text.Content), strings.ToLower(query)) {
 			results = append(results, page)
 		}
 
@@ -355,10 +386,139 @@ func ListWorlds(worldsPath string) ([]string, error) {
 
 // SearchNDJSON searches the NDJSON back compendium
 func (r *Repository) SearchNDJSON(query string) ([]map[string]interface{}, error) {
-	if r.ndjsonDB == nil {
-		return nil, fmt.Errorf("ndjson database not available")
+	results := []map[string]interface{}{}
+
+	// Search NDJSON
+	if r.ndjsonDB != nil {
+		ndjsonResults, err := r.ndjsonDB.Search(query)
+		if err != nil {
+			return nil, fmt.Errorf("failed to search ndjson: %w", err)
+		}
+		results = append(results, ndjsonResults...)
 	}
-	return r.ndjsonDB.Search(query)
+
+	// Search LevelDB actors
+	if r.actorDB != nil {
+		leveldbResults := searchLevelDBActors(r.actorDB, query)
+		results = append(results, leveldbResults...)
+	}
+
+	// Search LevelDB items
+	if r.itemsDB != nil {
+		leveldbResults := searchLevelDBItems(r.itemsDB, query)
+		results = append(results, leveldbResults...)
+	}
+
+	return results, nil
+}
+
+// searchLevelDBActors searches LevelDB actors for matching entries
+func searchLevelDBActors(actorsDB *leveldb.Reader, query string) []map[string]interface{} {
+	results := []map[string]interface{}{}
+
+	actorsDB.Iterate(func(key, value []byte) bool {
+		data, err := actorsDB.Get(key)
+		if err != nil {
+			return true
+		}
+
+		// Parse JSON
+		var entity map[string]interface{}
+		if err := json.Unmarshal(data, &entity); err != nil {
+			return true
+		}
+
+		// Check if matches query
+		if entityMatches(entity, query) {
+			// Add source field to distinguish from NDJSON
+			entity["_source"] = "LevelDB"
+			results = append(results, entity)
+		}
+
+		return true
+	})
+
+	return results
+}
+
+// searchLevelDBItems searches LevelDB items for matching entries
+func searchLevelDBItems(itemsDB *leveldb.Reader, query string) []map[string]interface{} {
+	results := []map[string]interface{}{}
+
+	itemsDB.Iterate(func(key, value []byte) bool {
+		data, err := itemsDB.Get(key)
+		if err != nil {
+			return true
+		}
+
+		// Parse JSON
+		var entity map[string]interface{}
+		if err := json.Unmarshal(data, &entity); err != nil {
+			return true
+		}
+
+		// Check if matches query
+		if entityMatches(entity, query) {
+			// Add source field to distinguish from NDJSON
+			entity["_source"] = "LevelDB"
+			results = append(results, entity)
+		}
+
+		return true
+	})
+
+	return results
+}
+
+// entityMatches checks if an entity matches the query
+func entityMatches(entity map[string]interface{}, query string) bool {
+	name, ok := entity["name"].(string)
+	if ok && strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
+		return true
+	}
+
+	system, ok := entity["system"].(map[string]interface{})
+	if ok {
+		if searchSystem(system, query) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// searchSystem searches within system data
+func searchSystem(system map[string]interface{}, query string) bool {
+	for key, value := range system {
+		if strings.Contains(strings.ToLower(key), strings.ToLower(query)) {
+			return true
+		}
+
+		switch v := value.(type) {
+		case string:
+			if strings.Contains(strings.ToLower(v), strings.ToLower(query)) {
+				return true
+			}
+		case map[string]interface{}:
+			if searchSystem(v, query) {
+				return true
+			}
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(map[string]interface{}); ok {
+					if searchSystem(s, query) {
+						return true
+					}
+				} else if str, ok := item.(string); ok {
+					if strings.Contains(strings.ToLower(str), strings.ToLower(query)) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // GetNDJSONByID retrieves an entity from NDJSON by type and ID

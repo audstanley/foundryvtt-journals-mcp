@@ -207,3 +207,15 @@ func OpenWorldUsers(worldsPath, worldName string) (*Reader, error) {
 	usersPath := fmt.Sprintf("%s/%s/data/users", worldsPath, worldName)
 	return Open(usersPath)
 }
+
+// OpenWorldActors opens the actors database for a specific world
+func OpenWorldActors(worldsPath, worldName string) (*Reader, error) {
+	actorsPath := fmt.Sprintf("%s/%s/data/actors", worldsPath, worldName)
+	return Open(actorsPath)
+}
+
+// OpenWorldItems opens the items database for a specific world
+func OpenWorldItems(worldsPath, worldName string) (*Reader, error) {
+	itemsPath := fmt.Sprintf("%s/%s/data/items", worldsPath, worldName)
+	return Open(itemsPath)
+}

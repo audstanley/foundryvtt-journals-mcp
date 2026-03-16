@@ -24,6 +24,8 @@ var defaultWhiteList = []string{
 	"actors",
 	"items",
 	"journals",
+	"npcs",
+	"characters",
 }
 
 func Open(worldsPath, worldName string) (*Reader, error) {
@@ -72,17 +74,27 @@ func (r *Reader) loadType(dbPath, entityType string) error {
 	r.index[entityType] = make(map[string]int)
 
 	scanner := bufio.NewScanner(file)
+	maxCapacity := 1024 * 1024 // 1MB
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
 	lineNum := 0
 
-	for scanner.Scan() {
+	for {
 		lineNum++
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" {
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				return fmt.Errorf("error reading %s at line %d: %w", dbPath, lineNum, err)
+			}
+			break
+		}
+		line := scanner.Bytes()
+
+		if strings.TrimSpace(string(line)) == "" {
 			continue
 		}
 
 		var entity map[string]interface{}
-		if err := json.Unmarshal([]byte(line), &entity); err != nil {
+		if err := json.Unmarshal(line, &entity); err != nil {
 			continue
 		}
 
@@ -99,7 +111,7 @@ func (r *Reader) loadType(dbPath, entityType string) error {
 		r.index[entityType][id] = len(r.entities[entityType]) - 1
 	}
 
-	return scanner.Err()
+	return nil
 }
 
 func (r *Reader) GetByID(entityType, id string) (map[string]interface{}, bool) {
