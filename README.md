@@ -40,8 +40,8 @@ mage build
 ### Running the MCP Server
 
 ```bash
-# Start server for a specific world
-./fjm serve --worlds ./worlds --name MyWorld
+# Start server (reads worlds from FJM_WORLDS_PATH or ./worlds)
+./fjm serve
 
 # Server runs on stdio, configure your MCP client to connect
 ```
@@ -62,15 +62,12 @@ mage build
 ### Exporting Journals to MDX
 
 ```bash
-# Export single world to Markdown
-./fjm mdx --worlds ./worlds --name MyWorld --output ./exports
-
-# Export all worlds (omit --name flag)
+# Export all worlds to Markdown
 ./fjm mdx --worlds ./worlds --output ./exports
 
 # Output structure:
 # ./exports/
-#   MyWorld/
+#   WorldName/
 #     Entry Name/
 #       Page 1.mdx
 #       Page 2.mdx
@@ -79,7 +76,7 @@ mage build
 With folder support:
 ```bash
 ./exports/
-  MyWorld/
+  WorldName/
     Campaign/Session 1/
       Session Notes.mdx
     Campaign/Session 2/
@@ -221,12 +218,12 @@ See [PHASES.md](PHASES.md) for detailed task breakdown.
 
 ### Searching Entries
 ```json
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_entries","arguments":{"world":"MyWorld","query":"goblin"}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_entries","arguments":{"world":"WorldName","query":"goblin"}},"id":1}
 ```
 
 ### Resolving UUID
 ```json
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"resolve_uuid","arguments":{"world":"MyWorld","type":"Item","id":"ItemUUID123"}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"resolve_uuid","arguments":{"world":"WorldName","type":"Item","id":"ItemUUID123"}},"id":1}
 ```
 
 ## Troubleshooting
