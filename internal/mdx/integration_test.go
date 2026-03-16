@@ -56,7 +56,7 @@ func TestIntegration_ExportToDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "mdx-output")
 
-	g := NewGenerator(outputPath)
+	g := NewGenerator(outputPath, filepath.Join(tmpDir, "worlds"), "testworld")
 
 	// Create a mock repository structure
 	worldDir := filepath.Join(tmpDir, "worlds", "testworld", "data", "journal")

@@ -22,7 +22,7 @@ func NewUUIDResolutionTools(worldsPath string) *UUIDResolutionTools {
 
 // ResolveUUID resolves a single @UUID{} reference to actual Foundry VTT data
 func (t *UUIDResolutionTools) ResolveUUID(params json.RawMessage) (interface{}, error) {
-	var worldName, uuidType, uuidID string
+	var uuidType, uuidID string
 	var username string
 
 	var p map[string]interface{}
@@ -30,9 +30,6 @@ func (t *UUIDResolutionTools) ResolveUUID(params json.RawMessage) (interface{}, 
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 
-	if wn, ok := p["world"].(string); ok && wn != "" {
-		worldName = wn
-	}
 	if ut, ok := p["type"].(string); ok && ut != "" {
 		uuidType = ut
 	}
@@ -43,15 +40,19 @@ func (t *UUIDResolutionTools) ResolveUUID(params json.RawMessage) (interface{}, 
 		username = un
 	}
 
-	if worldName == "" {
-		return nil, fmt.Errorf("world is required")
-	}
 	if uuidType == "" {
 		return nil, fmt.Errorf("type is required (e.g., Item, Actor, Compendium)")
 	}
 	if uuidID == "" {
 		return nil, fmt.Errorf("id is required")
 	}
+
+	// Auto-discover world
+	worlds, err := journal.ListWorlds(t.WorldsPath)
+	if err != nil || len(worlds) == 0 {
+		return nil, fmt.Errorf("no worlds available")
+	}
+	worldName := worlds[0]
 
 	repo, err := journal.NewRepository(t.WorldsPath, worldName)
 	if err != nil {
@@ -99,7 +100,7 @@ func (t *UUIDResolutionTools) ResolveUUID(params json.RawMessage) (interface{}, 
 
 // ResolveUUIDsFromContent extracts and resolves all @UUID{} references from content
 func (t *UUIDResolutionTools) ResolveUUIDsFromContent(params json.RawMessage) (interface{}, error) {
-	var worldName, content string
+	var content string
 	var username string
 
 	var p map[string]interface{}
@@ -107,9 +108,6 @@ func (t *UUIDResolutionTools) ResolveUUIDsFromContent(params json.RawMessage) (i
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 
-	if wn, ok := p["world"].(string); ok && wn != "" {
-		worldName = wn
-	}
 	if c, ok := p["content"].(string); ok && c != "" {
 		content = c
 	}
@@ -117,9 +115,6 @@ func (t *UUIDResolutionTools) ResolveUUIDsFromContent(params json.RawMessage) (i
 		username = un
 	}
 
-	if worldName == "" {
-		return nil, fmt.Errorf("world is required")
-	}
 	if content == "" {
 		return nil, fmt.Errorf("content is required")
 	}
@@ -137,6 +132,12 @@ func (t *UUIDResolutionTools) ResolveUUIDsFromContent(params json.RawMessage) (i
 	}
 
 	// Resolve each reference
+	worlds, err := journal.ListWorlds(t.WorldsPath)
+	if err != nil || len(worlds) == 0 {
+		return nil, fmt.Errorf("no worlds available")
+	}
+	worldName := worlds[0]
+
 	repo, err := journal.NewRepository(t.WorldsPath, worldName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open world: %w", err)

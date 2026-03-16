@@ -7,7 +7,7 @@ import (
 )
 
 func TestGenerator_New(t *testing.T) {
-	g := NewGenerator("/tmp/test")
+	g := NewGenerator("/tmp/test", "/tmp/worlds", "testworld")
 	if g == nil {
 		t.Error("NewGenerator() returned nil")
 	}
@@ -23,7 +23,7 @@ func TestGenerator_Export(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "output")
 
-	g := NewGenerator(outputPath)
+	g := NewGenerator(outputPath, filepath.Join(tmpDir, "worlds"), "testworld")
 
 	// Create a test repository
 	worldName := "testworld"
@@ -78,7 +78,7 @@ func TestGenerator_ExportStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "output")
 
-	_ = NewGenerator(outputPath) // suppress unused warning
+	_ = NewGenerator(outputPath, filepath.Join(tmpDir, "worlds"), "testworld") // suppress unused warning
 
 	// Verify output directory is created
 	worldName := "testworld"

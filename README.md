@@ -1,6 +1,6 @@
-# Foundry VTT Journal MCP Server
+# Foundry VTT Journal Import & Export & MCP Server
 
-An MCP (Model Context Protocol) server for reading and searching Foundry VTT journals.
+An MCP (Model Context Protocol) server for reading, searching, and exporting Foundry VTT journals.
 
 ## Overview
 
@@ -10,6 +10,9 @@ This tool provides:
 - **Permission-Aware** - Respects Foundry VTT user permissions and ownership
 - **UUID Resolution** - Resolve `@UUID{Type.ID}{Text}` references to actual data
 - **Nested Structure** - Preserve FVTT folder hierarchy in exports
+- **Command-Line Search** - Search across journals, actors, and items from terminal
+
+**Note: This tool is designed for Game Masters only. Permission filtering has not been implemented in the search engine, so all data is visible regardless of in-game permissions.**
 
 ## Requirements
 
@@ -20,14 +23,14 @@ This tool provides:
 
 ```bash
 # Clone repository
-git clone https://github.com/anomalyco/fvtt-journal-mcp.git
-cd fvtt-journal-mcp
+git clone https://github.com/audstanley/foundryvtt-journals-mcp
+cd foundryvtt-journals-mcp
 
 # Build binary
 go mod download
 go build -o fjm ./cmd/server
 
-# Or use mage for additional commands
+# Or use mage for build and other commands
 go install github.com/magefile/mage@latest
 mage build
 ```
@@ -37,21 +40,34 @@ mage build
 ### Running the MCP Server
 
 ```bash
-# Start server for a specific world
-./fjm serve --worlds ./worlds --name MyWorld
+# Start server with worlds path
+./fjm serve --worlds ./worlds
 
 # Server runs on stdio, configure your MCP client to connect
+```
+
+### Command-Line Search
+
+```bash
+# Search across all worlds for "goblin"
+./fjm search --query "goblin" --worlds ./worlds
+
+# Search returns:
+# - Journal entries from LevelDB
+# - Actors from both NDJSON and LevelDB
+# - Items from both NDJSON and LevelDB
+# Results marked by source type (LevelDB vs NDJSON)
 ```
 
 ### Exporting Journals to MDX
 
 ```bash
-# Export all journals to Markdown
-./fjm mdx --worlds ./worlds --name MyWorld --output ./exports
+# Export all worlds to Markdown
+./fjm mdx --worlds ./worlds --output ./exports
 
 # Output structure:
 # ./exports/
-#   MyWorld/
+#   WorldName/
 #     Entry Name/
 #       Page 1.mdx
 #       Page 2.mdx
@@ -60,7 +76,7 @@ mage build
 With folder support:
 ```bash
 ./exports/
-  MyWorld/
+  WorldName/
     Campaign/Session 1/
       Session Notes.mdx
     Campaign/Session 2/
@@ -79,17 +95,46 @@ All tools accept JSON parameters via stdio:
 - `get_page` - Get single page content
 
 ### Search Tools
-- `search_entries` - Search entry names by query
-- `search_pages` - Search page content (returns snippets)
+- `search_all` - **UNIFIED SEARCH** - Search journals, actors, and items across both LevelDB and NDJSON databases
+- `search_compendium` - Search only NDJSON back compendium (Actors, Items)
+- `search_journals` - Search only LevelDB journal entry names
+- `search_journal_pages` - Search only LevelDB journal page content
 
 ### Stats Tools
-- `get_entry_stats` - Get world/entry statistics
+- `get_entry_stats` - Get world/entry statistics (with optional permission filtering)
 
 ### UUID Tools
-- `resolve_uuid` - Resolve single `@UUID{}` reference
+- `resolve_uuid` - Resolve single `@UUID{}` reference to Foundry VTT data
 - `resolve_uuids_from_content` - Extract and resolve all UUIDs in content
 
-## Configuration
+## Command-Line Search
+
+The `search` command provides unified search across all data sources:
+
+```bash
+./fjm search --query "your search term" --worlds ./worlds
+```
+
+**Flags:**
+- `--query, -q` - Search term (required)
+- `--worlds, -w` - Path to worlds directory (default: `./worlds`)
+
+**What it searches:**
+1. Journal entries (LevelDB)
+2. Actors from NDJSON (`actors.db`)
+3. Items from NDJSON (`items.db`)
+4. Actors from LevelDB (`data/actors/`)
+5. Items from LevelDB (`data/items/`)
+
+**Output format:**
+Each result includes:
+- Type (journal, actor, item)
+- Source (LevelDB or NDJSON)
+- World name
+- UUID reference
+- Content snippet
+
+> **⚠️ GM Only Notice**: This search currently bypasses all permission checks. Only use for GM purposes on worlds you own.
 
 ### Environment Variables
 
@@ -172,14 +217,24 @@ See [PHASES.md](PHASES.md) for detailed task breakdown.
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_worlds","arguments":{}},"id":1}
 ```
 
-### Searching Entries
+### Unified Search (all databases)
 ```json
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_entries","arguments":{"world":"MyWorld","query":"goblin"}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_all","arguments":{"query":"goblin"}},"id":1}
+```
+
+### Search Compendium Only (NDJSON actors/items)
+```json
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_compendium","arguments":{"query":"sword","entity_type":"actors"}},"id":1}
+```
+
+### Search Journals Only (LevelDB)
+```json
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_journals","arguments":{"query":"session"}},"id":1}
 ```
 
 ### Resolving UUID
 ```json
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"resolve_uuid","arguments":{"world":"MyWorld","type":"Item","id":"ItemUUID123"}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"resolve_uuid","arguments":{"type":"Actor","id":"ActorUUID123"}},"id":1}
 ```
 
 ## Troubleshooting
