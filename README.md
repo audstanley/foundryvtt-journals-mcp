@@ -30,7 +30,7 @@ cd foundryvtt-journals-mcp
 go mod download
 go build -o fjm ./cmd/server
 
-# Or use mage for additional commands
+# Or use mage for build and other commands
 go install github.com/magefile/mage@latest
 mage build
 ```
