@@ -95,15 +95,16 @@ All tools accept JSON parameters via stdio:
 - `get_page` - Get single page content
 
 ### Search Tools
-- `search_entries` - Search entry names by query
-- `search_pages` - Search page content (returns snippets)
 - `search_all` - **UNIFIED SEARCH** - Search journals, actors, and items across both LevelDB and NDJSON databases
+- `search_compendium` - Search only NDJSON back compendium (Actors, Items)
+- `search_journals` - Search only LevelDB journal entry names
+- `search_journal_pages` - Search only LevelDB journal page content
 
 ### Stats Tools
-- `get_entry_stats` - Get world/entry statistics
+- `get_entry_stats` - Get world/entry statistics (with optional permission filtering)
 
 ### UUID Tools
-- `resolve_uuid` - Resolve single `@UUID{}` reference
+- `resolve_uuid` - Resolve single `@UUID{}` reference to Foundry VTT data
 - `resolve_uuids_from_content` - Extract and resolve all UUIDs in content
 
 ## Command-Line Search
@@ -216,14 +217,24 @@ See [PHASES.md](PHASES.md) for detailed task breakdown.
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_worlds","arguments":{}},"id":1}
 ```
 
-### Searching Entries
+### Unified Search (all databases)
 ```json
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_entries","arguments":{"world":"WorldName","query":"goblin"}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_all","arguments":{"query":"goblin"}},"id":1}
+```
+
+### Search Compendium Only (NDJSON actors/items)
+```json
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_compendium","arguments":{"query":"sword","entity_type":"actors"}},"id":1}
+```
+
+### Search Journals Only (LevelDB)
+```json
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_journals","arguments":{"query":"session"}},"id":1}
 ```
 
 ### Resolving UUID
 ```json
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"resolve_uuid","arguments":{"world":"WorldName","type":"Item","id":"ItemUUID123"}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"resolve_uuid","arguments":{"type":"Actor","id":"ActorUUID123"}},"id":1}
 ```
 
 ## Troubleshooting
